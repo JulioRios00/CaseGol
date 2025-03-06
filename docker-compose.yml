@@ -1,0 +1,22 @@
+
+services:
+  app:
+    build: .
+    container_name: gol_dashboard
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./app:/app/app
+      - ./data:/app/data
+    environment:
+      - FLASK_APP=run.py
+      - FLASK_ENV=development
+      - SECRET_KEY=your-secret-key-change-in-production
+    restart: unless-stopped
+
+    command: >
+      bash -c "mkdir -p /app/data &&
+               flask db init || true &&
+               flask db migrate || true &&
+               flask db upgrade || true &&
+               gunicorn --bind 0.0.0.0:5000 --workers 3 --timeout 120 run:app" 

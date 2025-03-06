@@ -1,0 +1,66 @@
+from dash import Dash, dcc, html, Input, Output, callback
+import dash
+import dash_bootstrap_components as dbc
+from flask_login import current_user
+from flask import session
+
+from .layouts.login import login_layout
+from .layouts.register import register_layout
+from .layouts.dashboard import dashboard_layout
+
+from .callbacks.auth_callbacks import register_auth_callbacks
+from .callbacks.dashboard_callbacks import register_dashboard_callbacks
+
+
+def init_dashboard(server):
+    """
+    Cria um aplicativo Dash com layout multi-página
+    Create a Dash app with multi-page layout
+    """
+    dash_app = Dash(
+        __name__,
+        server=server,
+        url_base_pathname='/',
+        suppress_callback_exceptions=True,
+        external_stylesheets=[dbc.themes.BOOTSTRAP]
+    )
+    
+    dash_app.layout = html.Div([
+        dcc.Location(id='url', refresh=True),
+        html.Div(id='page-content')
+    ])
+
+    
+    # Register all callbacks
+    register_auth_callbacks(dash_app)
+    register_dashboard_callbacks(dash_app)
+    
+    # Define callback for URL routing
+    @dash_app.callback(
+        Output('page-content', 'children'),
+        [Input('url', 'pathname')]
+    )
+    def display_page(pathname):
+        # For the root path or dashboard path, check authentication
+        if pathname == '/' or pathname == '/dashboard':
+            if current_user.is_authenticated:
+                return dashboard_layout
+            else:
+                # Redirect to login if not authenticated
+                return dcc.Location(pathname='/login', id='redirect-to-login')
+        
+        # Allow access to login and register pages
+        elif pathname == '/login':
+            # If already authenticated, redirect to dashboard
+            if current_user.is_authenticated:
+                return dcc.Location(pathname='/dashboard', id='redirect-to-dashboard')
+            return login_layout
+        elif pathname == '/register':
+            # If already authenticated, redirect to dashboard
+            if current_user.is_authenticated:
+                return dcc.Location(pathname='/dashboard', id='redirect-to-dashboard')
+            return register_layout
+        else:
+            return '404 - Page not found'
+    
+    return dash_app

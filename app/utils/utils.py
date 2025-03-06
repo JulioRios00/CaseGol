@@ -1,6 +1,5 @@
 import hashlib
 import os
-import traceback
 
 import pandas as pd
 
@@ -58,7 +57,6 @@ def process_and_load_flight_data(csv_path):
             & (df["GRUPO_DE_VOO"] == "REGULAR")
             & (df["NATUREZA"] == "DOMÉSTICA")
         ].copy()
-        print(f"Filtered data shape: {df_filtered.shape}")
 
         df_filtered.loc[:, "MERCADO"] = df_filtered.apply(
             lambda row: "".join(
@@ -75,7 +73,6 @@ def process_and_load_flight_data(csv_path):
         df_final = (
             df_filtered.groupby(["ANO", "MES", "MERCADO"])["RPK"].sum().reset_index()
         )
-        print(f"Final grouped data shape: {df_final.shape}")
 
         for _, row in df_final.iterrows():
             flight = Flight(
@@ -84,12 +81,9 @@ def process_and_load_flight_data(csv_path):
             db.session.add(flight)
 
         db.session.commit()
-        print("Database populated successfully!")
-        print(f"Successfully loaded {Flight.query.count()} records from CSV")
         return True
 
     except Exception as e:
         print(f"Error populating database: {e}")
-        traceback.print_exc()
         db.session.rollback()
         return False

@@ -1,11 +1,15 @@
 import os
 
-from flask import Blueprint, jsonify, request
-from flask_login import login_required, login_user, logout_user
+from flask import Blueprint, jsonify, request, render_template, redirect, url_for, current_app
+from flask_login import login_required, login_user, logout_user, current_user
 
 from app import db
 from app.models.models import Flight, User
 from app.utils.utils import hash_password, process_and_load_flight_data
+import pandas as pd
+import traceback
+from datetime import datetime
+import json
 
 main = Blueprint("main", __name__)
 
@@ -36,59 +40,45 @@ def setup_database():
 """
 
 
-@main.route("/register", methods=["GET", "POST"])
-def register():
-    if request.method == "GET":
-        return jsonify({"message": "Register page"}), 200
-    elif request.method == "POST":
-        username = request.form["username"]
-        password = request.form["password"]
+@main.route("/api/register", methods=["POST"])
+def api_register():
+    username = request.form["username"]
+    password = request.form["password"]
 
-        existing_user = User.query.filter_by(username=username).first()
-        if existing_user:
-            return (
-                jsonify({"error": "Username already exists."}),
-                400,
-            )
+    existing_user = User.query.filter_by(username=username).first()
+    if existing_user:
+        return jsonify({"error": "Username already exists. Please choose another one."}), 400
 
-        new_user = User(username=username, password=hash_password(password))
+    new_user = User(username=username, password=hash_password(password))
 
-        db.session.add(new_user)
-        db.session.commit()
+    db.session.add(new_user)
+    db.session.commit()
 
-        login_user(new_user)
+    login_user(new_user)
 
-        return (
-            jsonify(
-                {"message": "User registered successfully", "user_id": new_user.id}
-            ),
-            201,
-        )
+    return jsonify({"message": "User registered successfully", "user_id": new_user.id}), 201
 
 
-@main.route("/login", methods=["GET", "POST"])
-def login():
-    if request.method == "GET":
-        return jsonify({"message": "Login page"}), 200
-    elif request.method == "POST":
-        username = request.form["username"]
-        password = request.form["password"]
+@main.route("/api/login", methods=["POST"])
+def api_login():
+    username = request.form["username"]
+    password = request.form["password"]
 
-        user = User.query.filter_by(
-            username=username, password=hash_password(password)
-        ).first()
+    user = User.query.filter_by(
+        username=username, password=hash_password(password)
+    ).first()
 
-        if user is None:
-            return jsonify({"error": "Invalid username and/or password"}), 401
+    if user is None:
+        return jsonify({"error": "Invalid username and/or password"}), 401
 
-        login_user(user)
+    login_user(user)
 
-        return jsonify({"message": "Login successful", "user_id": user.id}), 200
+    return jsonify({"message": "Login successful", "user_id": user.id}), 200
 
 
-@main.route("/logout")
+@main.route("/api/logout")
 @login_required
-def logout():
+def api_logout():
     logout_user()
     return jsonify({"message": "Logged out successfully"}), 200
 
@@ -161,32 +151,178 @@ def filter():
     return jsonify(response_data), 200
 
 
-@main.route("/admin/load-data")
-def admin_load_data():
-    db.create_all()
+@main.route("/api/dashboard-data")
+@login_required
+def api_dashboard_data():
+    year_min = db.session.query(db.func.min(Flight.ano)).scalar()
+    year_max = db.session.query(db.func.max(Flight.ano)).scalar()
 
-    count_before = Flight.query.count()
+    markets = [
+        market[0]
+        for market in Flight.query.with_entities(Flight.mercado).distinct().all()
+    ]
+    
+    return jsonify({
+        "year_min": year_min,
+        "year_max": year_max,
+        "markets": markets
+    }), 200
 
-    csv_path = "/home/clint/learning/testes/gol/data/Dados_Estatisticos.csv"
 
-    if not os.path.exists(csv_path):
-        return jsonify({"error": "CSV file not found", "path_checked": csv_path}), 404
-
+@main.route("/api/filter", methods=["POST"])
+@login_required
+def api_filter():
     try:
-        process_and_load_flight_data(csv_path)
-        count_after = Flight.query.count()
+		
+        for key, value in request.form.items():
+            print(f"  {key}: {value}")
+        
+        market = request.form.get("market")
+        start_year = int(request.form.get("start_year"))
+        start_month = int(request.form.get("start_month"))	
+        end_year = int(request.form.get("end_year"))
+        end_month = int(request.form.get("end_month"))
 
-        return (
-            jsonify(
-                {
-                    "success": True,
-                    "message": "Data loaded successfully",
-                    "records_before": count_before,
-                    "records_after": count_after,
-                    "csv_path": csv_path,
-                }
-            ),
-            200,
+
+        query = Flight.query.filter(Flight.mercado == market)
+        
+        date_condition = (
+            ((Flight.ano > start_year) | ((Flight.ano == start_year) & (Flight.mes >= start_month))) &
+            ((Flight.ano < end_year) | ((Flight.ano == end_year) & (Flight.mes <= end_month)))
         )
+        
+        query = query.filter(date_condition)
+        
+        flights = query.order_by(Flight.ano, Flight.mes).all()
+        
+        labels = [f"{flight.ano}-{flight.mes:02d}" for flight in flights]
+        rpk_values = [float(flight.rpk) if flight.rpk is not None else 0.0 for flight in flights]
+
+        flight_data = []
+        for flight in flights:
+            flight_data.append({
+                "id": flight.id,
+                "ano": flight.ano,
+                "mes": flight.mes,
+                "mercado": flight.mercado,
+                "rpk": float(flight.rpk) if flight.rpk is not None else 0.0
+            })
+
+        response_data = {
+            "flights": flight_data,
+            "labels": labels,
+            "rpk_values": rpk_values,
+            "market": market
+        }
+	
+        return jsonify(response_data), 200
+    
     except Exception as e:
-        return jsonify({"error": "Failed to load data", "exception": str(e)}), 500
+        return jsonify({"error": str(e)}), 500
+
+
+@main.route("/api/test")
+def api_test():
+    return jsonify({"status": "API is working"}), 200
+
+
+@main.route("/api/markets")
+def api_markets():
+    """Get all available markets in the database"""
+    try:
+        markets = [
+            market[0]
+            for market in Flight.query.with_entities(Flight.mercado).distinct().all()
+        ]
+        
+        for i, market in enumerate(markets[:10]):
+            print(f"  {i+1}. {market}")
+        
+        if len(markets) > 10:
+            print(f"  ... and {len(markets) - 10} more")
+            
+        return jsonify({
+            "status": "success",
+            "count": len(markets),
+            "markets": markets
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+
+# Function to be used directly from Dash callbacks
+def direct_login(username, password):
+    """Function to log in a user directly from Dash callbacks"""
+    from flask_login import current_user
+    
+    user = User.query.filter_by(
+        username=username, password=hash_password(password)
+    ).first()
+    
+    if user is None:
+        return False, "Nome de usuário ou senha inválidos"
+    
+    login_user(user)
+    
+    return True, None
+
+# Function to be used directly from Dash callbacks for registration
+def direct_register(username, password):
+    """Function to register a user directly from Dash callbacks"""
+    from flask_login import current_user
+    
+    existing_user = User.query.filter_by(username=username).first()
+    if existing_user:
+        return False, "Nome de usuário já existe"
+    
+    new_user = User(username=username, password=hash_password(password))
+    db.session.add(new_user)
+    
+    try:
+        db.session.commit()
+        login_user(new_user)
+        return True, None
+    except Exception as e:
+        db.session.rollback()
+        return False, f"Erro ao registrar: {str(e)}"
+
+
+def process_and_load_flight_data(csv_path):
+    """
+    Processa os dados do CSV da ANAC e carrega no banco de dados.
+    
+    Filtros:
+    - EMPRESA = "GLO" (GOL)
+    - GRUPO_DE_VOO = "REGULAR"
+    - NATUREZA = "DOMÉSTICA"
+    
+    Cria MERCADO ordenando alfabeticamente ORIGEM + DESTINO
+    """
+	
+    df = pd.read_csv(csv_path, sep=';', encoding='latin1')
+    
+    df = df[
+        (df['EMPRESA'] == 'GLO') & 
+        (df['GRUPO DE VOO'] == 'REGULAR') & 
+        (df['NATUREZA'] == 'DOMÉSTICA')
+    ]
+    
+    def create_market(row):
+        airports = sorted([row['ORIGEM'], row['DESTINO']])
+        return ''.join(airports)
+    
+    df['MERCADO'] = df.apply(create_market, axis=1)
+    
+    grouped = df.groupby(['ANO', 'MÊS', 'MERCADO'])['RPK'].sum().reset_index()
+    
+    for _, row in grouped.iterrows():
+        flight = Flight(
+            ano=int(row['ANO']),
+            mes=int(row['MÊS']),
+            mercado=row['MERCADO'],
+            rpk=float(row['RPK'])
+        )
+        db.session.add(flight)
+    
+    db.session.commit()

@@ -12,6 +12,12 @@ gunicorn==21.2.0
 python-dotenv==1.0.0
 werkzeug==2.0.1
 email-validator==2.0.0
+dash==2.9.3
+dash-bootstrap-components==1.5.0
+dash-core-components==2.0.0
+dash-html-components==2.0.0
+dash-table==5.0.0
+requests==2.31.0
 black==23.3.0
 flake8==6.0.0
 isort==5.10.1

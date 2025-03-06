@@ -3,7 +3,7 @@ from flask_login import LoginManager
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 
-# Initialize extensions
+
 db = SQLAlchemy()
 migrate = Migrate()
 login_manager = LoginManager()
@@ -13,7 +13,6 @@ login_manager.login_view = "main.login"
 def create_app(config_name="default"):
     app = Flask(__name__)
 
-    app.config["SECRET_KEY"] = "your-secret-key"
     app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///app.db"
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
