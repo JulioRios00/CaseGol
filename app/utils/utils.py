@@ -2,14 +2,53 @@ import hashlib
 import os
 
 import pandas as pd
+from flask_login import login_user
 
 from app import db
-from app.models.models import Flight
+from app.models.models import Flight, User
 
 
 def hash_password(password):
     hash_obj = hashlib.sha256(password.encode("utf-8"))
     return hash_obj.hexdigest()
+
+
+def direct_login(username, password):
+    """
+    Função para logar um usuário diretamente a partir de callbacks do Dash
+    Function to log in a user directly from Dash callbacks
+    """
+    user = User.query.filter_by(
+        username=username, password=hash_password(password)
+    ).first()
+
+    if user is None:
+        return False, "Nome de usuário ou senha inválidos"
+
+    login_user(user)
+
+    return True, None
+
+
+def direct_register(username, password):
+    """
+    Função para registrar um usuário diretamente a partir de callbacks do Dash
+    Function to register a user directly from Dash callbacks
+    """
+    existing_user = User.query.filter_by(username=username).first()
+    if existing_user:
+        return False, "Nome de usuário já existe"
+
+    new_user = User(username=username, password=hash_password(password))
+    db.session.add(new_user)
+
+    try:
+        db.session.commit()
+        login_user(new_user)
+        return True, None
+    except Exception as e:
+        db.session.rollback()
+        return False, f"Erro ao registrar: {str(e)}"
 
 
 def process_and_load_flight_data(csv_path):

@@ -1,9 +1,10 @@
+import os
+
+from dotenv import load_dotenv
 from flask import Flask, jsonify
 from flask_login import LoginManager
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
-import os
-from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -12,18 +13,20 @@ migrate = Migrate()
 login_manager = LoginManager()
 login_manager.login_view = "/login"
 
+
 @login_manager.unauthorized_handler
 def unauthorized():
     return jsonify({"error": "Authentication required"}), 401
 
+
 def create_app(config_name="default"):
     app = Flask(__name__)
-    
+
     app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "fallback-secret-key")
-    
+
     app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///app.db"
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-    app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
+    app.config["JSONIFY_PRETTYPRINT_REGULAR"] = False
 
     @app.shell_context_processor
     def make_shell_context():
@@ -40,13 +43,14 @@ def create_app(config_name="default"):
     app.register_blueprint(main_blueprint)
 
     with app.app_context():
-        from app.models.models import User, Flight
-        
+        from app.models.models import Flight, User
+
         @login_manager.user_loader
         def load_user(user_id):
             return User.query.get(int(user_id))
-        
+
         from app.dashapp import init_dashboard
+
         init_dashboard(app)
 
     return app

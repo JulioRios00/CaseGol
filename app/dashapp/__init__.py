@@ -1,15 +1,14 @@
-from dash import Dash, dcc, html, Input, Output, callback
 import dash
 import dash_bootstrap_components as dbc
-from flask_login import current_user
+from dash import Dash, Input, Output, callback, dcc, html
 from flask import session
-
-from .layouts.login import login_layout
-from .layouts.register import register_layout
-from .layouts.dashboard import dashboard_layout
+from flask_login import current_user
 
 from .callbacks.auth_callbacks import register_auth_callbacks
 from .callbacks.dashboard_callbacks import register_dashboard_callbacks
+from .layouts.dashboard import dashboard_layout
+from .layouts.login import login_layout
+from .layouts.register import register_layout
 
 
 def init_dashboard(server):
@@ -20,47 +19,35 @@ def init_dashboard(server):
     dash_app = Dash(
         __name__,
         server=server,
-        url_base_pathname='/',
+        url_base_pathname="/",
         suppress_callback_exceptions=True,
-        external_stylesheets=[dbc.themes.BOOTSTRAP]
+        external_stylesheets=[dbc.themes.BOOTSTRAP],
     )
-    
-    dash_app.layout = html.Div([
-        dcc.Location(id='url', refresh=True),
-        html.Div(id='page-content')
-    ])
 
-    
+    dash_app.layout = html.Div(
+        [dcc.Location(id="url", refresh=True), html.Div(id="page-content")]
+    )
 
     register_auth_callbacks(dash_app)
     register_dashboard_callbacks(dash_app)
-    
 
-    @dash_app.callback(
-        Output('page-content', 'children'),
-        [Input('url', 'pathname')]
-    )
+    @dash_app.callback(Output("page-content", "children"), [Input("url", "pathname")])
     def display_page(pathname):
-
-        if pathname == '/' or pathname == '/dashboard':
+        if pathname == "/" or pathname == "/dashboard":
             if current_user.is_authenticated:
                 return dashboard_layout
             else:
+                return dcc.Location(pathname="/login", id="redirect-to-login")
 
-                return dcc.Location(pathname='/login', id='redirect-to-login')
-        
-
-        elif pathname == '/login':
-
+        elif pathname == "/login":
             if current_user.is_authenticated:
-                return dcc.Location(pathname='/dashboard', id='redirect-to-dashboard')
+                return dcc.Location(pathname="/dashboard", id="redirect-to-dashboard")
             return login_layout
-        elif pathname == '/register':
-
+        elif pathname == "/register":
             if current_user.is_authenticated:
-                return dcc.Location(pathname='/dashboard', id='redirect-to-dashboard')
+                return dcc.Location(pathname="/dashboard", id="redirect-to-dashboard")
             return register_layout
         else:
-            return '404 - Page not found'
-    
+            return "404 - Page not found"
+
     return dash_app

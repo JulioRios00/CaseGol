@@ -1,16 +1,14 @@
 import os
 
-from flask import Blueprint, jsonify, request, render_template, redirect, url_for, current_app
-from flask_login import login_required, login_user, logout_user, current_user
+import pandas as pd
+from flask import (Blueprint, current_app, jsonify, redirect, render_template,
+                   request, url_for)
+from flask_login import current_user, login_required, login_user, logout_user
 
 from app import db
 from app.models.models import Flight, User
-from app.utils.utils import hash_password, process_and_load_flight_data
-import pandas as pd
-
-from datetime import datetime
-import json
-from flask_login import current_user
+from app.utils.utils import (direct_login, direct_register, hash_password,
+                             process_and_load_flight_data)
 
 main = Blueprint("main", __name__)
 
@@ -39,6 +37,8 @@ def setup_database():
     Rotas de autenticação
     Authentication routes
 """
+
+
 @main.route("/api/register", methods=["POST"])
 def api_register():
     username = request.form["username"]
@@ -46,7 +46,10 @@ def api_register():
 
     existing_user = User.query.filter_by(username=username).first()
     if existing_user:
-        return jsonify({"error": "Username already exists. Please choose another one."}), 400
+        return (
+            jsonify({"error": "Username already exists. Please choose another one."}),
+            400,
+        )
 
     new_user = User(username=username, password=hash_password(password))
 
@@ -55,7 +58,10 @@ def api_register():
 
     login_user(new_user)
 
-    return jsonify({"message": "User registered successfully", "user_id": new_user.id}), 201
+    return (
+        jsonify({"message": "User registered successfully", "user_id": new_user.id}),
+        201,
+    )
 
 
 @main.route("/api/login", methods=["POST"])
@@ -86,6 +92,8 @@ def api_logout():
     Rotas da aplicação
     Application routes
 """
+
+
 @main.route("/")
 @login_required
 def dashboard():
@@ -158,12 +166,11 @@ def api_dashboard_data():
         market[0]
         for market in Flight.query.with_entities(Flight.mercado).distinct().all()
     ]
-    
-    return jsonify({
-        "year_min": year_min,
-        "year_max": year_max,
-        "markets": markets
-    }), 200
+
+    return (
+        jsonify({"year_min": year_min, "year_max": year_max, "markets": markets}),
+        200,
+    )
 
 
 @main.route("/api/filter", methods=["POST"])
@@ -176,45 +183,52 @@ def api_filter():
     try:
         for key, value in request.form.items():
             print(f"  {key}: {value}")
-        
+
         market = request.form.get("market")
         start_year = int(request.form.get("start_year"))
-        start_month = int(request.form.get("start_month"))	
+        start_month = int(request.form.get("start_month"))
         end_year = int(request.form.get("end_year"))
         end_month = int(request.form.get("end_month"))
 
         query = Flight.query.filter(Flight.mercado == market)
-        
+
         date_condition = (
-            ((Flight.ano > start_year) | ((Flight.ano == start_year) & (Flight.mes >= start_month))) &
-            ((Flight.ano < end_year) | ((Flight.ano == end_year) & (Flight.mes <= end_month)))
+            (Flight.ano > start_year)
+            | ((Flight.ano == start_year) & (Flight.mes >= start_month))
+        ) & (
+            (Flight.ano < end_year)
+            | ((Flight.ano == end_year) & (Flight.mes <= end_month))
         )
-        
+
         query = query.filter(date_condition)
-        
+
         flights = query.order_by(Flight.ano, Flight.mes).all()
-        
+
         labels = [f"{flight.ano}-{flight.mes:02d}" for flight in flights]
-        rpk_values = [float(flight.rpk) if flight.rpk is not None else 0.0 for flight in flights]
+        rpk_values = [
+            float(flight.rpk) if flight.rpk is not None else 0.0 for flight in flights
+        ]
 
         flight_data = []
         for flight in flights:
-            flight_data.append({
-                "id": flight.id,
-                "ano": flight.ano,
-                "mes": flight.mes,
-                "mercado": flight.mercado,
-                "rpk": float(flight.rpk) if flight.rpk is not None else 0.0
-            })
+            flight_data.append(
+                {
+                    "id": flight.id,
+                    "ano": flight.ano,
+                    "mes": flight.mes,
+                    "mercado": flight.mercado,
+                    "rpk": float(flight.rpk) if flight.rpk is not None else 0.0,
+                }
+            )
 
         response_data = {
             "flights": flight_data,
             "labels": labels,
             "rpk_values": rpk_values,
-            "market": market
+            "market": market,
         }
         return jsonify(response_data), 200
-    
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -230,104 +244,52 @@ def api_markets():
             market[0]
             for market in Flight.query.with_entities(Flight.mercado).distinct().all()
         ]
-        
+
         for i, market in enumerate(markets[:10]):
             print(f"  {i+1}. {market}")
-        
+
         if len(markets) > 10:
             print(f"  ... and {len(markets) - 10} more")
-            
-        return jsonify({
-            "status": "success",
-            "count": len(markets),
-            "markets": markets
-        }), 200
+
+        return (
+            jsonify({"status": "success", "count": len(markets), "markets": markets}),
+            200,
+        )
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
-def direct_login(username, password):
-    """
-    Função para logar um usuário diretamente a partir de callbacks do Dash
-    Function to log in a user directly from Dash callbacks
-    """
-    from flask_login import current_user
-    
-    user = User.query.filter_by(
-        username=username, password=hash_password(password)
-    ).first()
-    
-    if user is None:
-        return False, "Nome de usuário ou senha inválidos"
-    
-    login_user(user)
-    
-    return True, None
-
-
-def direct_register(username, password):
-    """
-    Função para registrar um usuário diretamente a partir de callbacks do Dash
-    Function to register a user directly from Dash callbacks
-    """
-    existing_user = User.query.filter_by(username=username).first()
-    if existing_user:
-        return False, "Nome de usuário já existe"
-    
-    new_user = User(username=username, password=hash_password(password))
-    db.session.add(new_user)
-    
+@main.route("/api/dashboard-data/markets", methods=["GET"])
+@login_required
+def api_dashboard_markets():
     try:
-        db.session.commit()
-        login_user(new_user)
-        return True, None
-    except Exception as e:
-        db.session.rollback()
-        return False, f"Erro ao registrar: {str(e)}"
+        markets = [
+            market[0]
+            for market in Flight.query.with_entities(Flight.mercado).distinct().all()
+        ]
+        markets.sort()
 
-
-def process_and_load_flight_data(csv_path):
-    """
-    Processa os dados do CSV da ANAC e carrega no banco de dados.
-    Filtros:
-    - EMPRESA = "GLO" (GOL)
-    - GRUPO_DE_VOO = "REGULAR"
-    - NATUREZA = "DOMÉSTICA"
-
-    Cria MERCADO ordenando alfabeticamente ORIGEM + DESTINO
-    
-    Process and load flight data from ANAC CSV file into the database.
-    Filters:
-    - EMPRESA = "GLO" (GOL)
-    - GRUPO_DE_VOO = "REGULAR"
-    - NATUREZA = "DOMÉSTICA"
-    
-    Creates MARKET by sorting alphabetically ORIGIN + DESTINATION
-    """
-	
-    df = pd.read_csv(csv_path, sep=';', encoding='latin1')
-    
-    df = df[
-        (df['EMPRESA'] == 'GLO') & 
-        (df['GRUPO DE VOO'] == 'REGULAR') & 
-        (df['NATUREZA'] == 'DOMÉSTICA')
-    ]
-    
-    def create_market(row):
-        airports = sorted([row['ORIGEM'], row['DESTINO']])
-        return ''.join(airports)
-    
-    df['MERCADO'] = df.apply(create_market, axis=1)
-    
-    grouped = df.groupby(['ANO', 'MÊS', 'MERCADO'])['RPK'].sum().reset_index()
-    
-    for _, row in grouped.iterrows():
-        flight = Flight(
-            ano=int(row['ANO']),
-            mes=int(row['MÊS']),
-            mercado=row['MERCADO'],
-            rpk=float(row['RPK'])
+        return (
+            jsonify({"status": "success", "count": len(markets), "markets": markets}),
+            200,
         )
-        db.session.add(flight)
-    
-    db.session.commit()
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@main.route("/api/auth-status")
+def auth_status():
+    """Debug endpoint to check authentication status"""
+    if current_user.is_authenticated:
+        return (
+            jsonify(
+                {
+                    "authenticated": True,
+                    "user_id": current_user.id,
+                    "username": current_user.username,
+                }
+            ),
+            200,
+        )
+    else:
+        return jsonify({"authenticated": False}), 200
