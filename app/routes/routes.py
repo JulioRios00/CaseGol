@@ -7,9 +7,10 @@ from app import db
 from app.models.models import Flight, User
 from app.utils.utils import hash_password, process_and_load_flight_data
 import pandas as pd
-import traceback
+
 from datetime import datetime
 import json
+from flask_login import current_user
 
 main = Blueprint("main", __name__)
 
@@ -38,8 +39,6 @@ def setup_database():
     Rotas de autenticação
     Authentication routes
 """
-
-
 @main.route("/api/register", methods=["POST"])
 def api_register():
     username = request.form["username"]
@@ -87,8 +86,6 @@ def api_logout():
     Rotas da aplicação
     Application routes
 """
-
-
 @main.route("/")
 @login_required
 def dashboard():
@@ -172,8 +169,11 @@ def api_dashboard_data():
 @main.route("/api/filter", methods=["POST"])
 @login_required
 def api_filter():
+    """
+    Função para filtrar os dados de voo com base nos filtros selecionados
+    Function to filter flight data based on selected filters
+    """
     try:
-		
         for key, value in request.form.items():
             print(f"  {key}: {value}")
         
@@ -182,7 +182,6 @@ def api_filter():
         start_month = int(request.form.get("start_month"))	
         end_year = int(request.form.get("end_year"))
         end_month = int(request.form.get("end_month"))
-
 
         query = Flight.query.filter(Flight.mercado == market)
         
@@ -214,21 +213,18 @@ def api_filter():
             "rpk_values": rpk_values,
             "market": market
         }
-	
         return jsonify(response_data), 200
     
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
-@main.route("/api/test")
-def api_test():
-    return jsonify({"status": "API is working"}), 200
-
-
 @main.route("/api/markets")
 def api_markets():
-    """Get all available markets in the database"""
+    """
+    Obtém todos os mercados disponíveis no banco de dados
+    Get all available markets in the database
+    """
     try:
         markets = [
             market[0]
@@ -250,10 +246,11 @@ def api_markets():
         return jsonify({"error": str(e)}), 500
 
 
-
-# Function to be used directly from Dash callbacks
 def direct_login(username, password):
-    """Function to log in a user directly from Dash callbacks"""
+    """
+    Função para logar um usuário diretamente a partir de callbacks do Dash
+    Function to log in a user directly from Dash callbacks
+    """
     from flask_login import current_user
     
     user = User.query.filter_by(
@@ -267,11 +264,12 @@ def direct_login(username, password):
     
     return True, None
 
-# Function to be used directly from Dash callbacks for registration
+
 def direct_register(username, password):
-    """Function to register a user directly from Dash callbacks"""
-    from flask_login import current_user
-    
+    """
+    Função para registrar um usuário diretamente a partir de callbacks do Dash
+    Function to register a user directly from Dash callbacks
+    """
     existing_user = User.query.filter_by(username=username).first()
     if existing_user:
         return False, "Nome de usuário já existe"
@@ -291,13 +289,20 @@ def direct_register(username, password):
 def process_and_load_flight_data(csv_path):
     """
     Processa os dados do CSV da ANAC e carrega no banco de dados.
-    
     Filtros:
     - EMPRESA = "GLO" (GOL)
     - GRUPO_DE_VOO = "REGULAR"
     - NATUREZA = "DOMÉSTICA"
-    
+
     Cria MERCADO ordenando alfabeticamente ORIGEM + DESTINO
+    
+    Process and load flight data from ANAC CSV file into the database.
+    Filters:
+    - EMPRESA = "GLO" (GOL)
+    - GRUPO_DE_VOO = "REGULAR"
+    - NATUREZA = "DOMÉSTICA"
+    
+    Creates MARKET by sorting alphabetically ORIGIN + DESTINATION
     """
 	
     df = pd.read_csv(csv_path, sep=';', encoding='latin1')

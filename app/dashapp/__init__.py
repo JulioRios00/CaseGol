@@ -31,32 +31,32 @@ def init_dashboard(server):
     ])
 
     
-    # Register all callbacks
+
     register_auth_callbacks(dash_app)
     register_dashboard_callbacks(dash_app)
     
-    # Define callback for URL routing
+
     @dash_app.callback(
         Output('page-content', 'children'),
         [Input('url', 'pathname')]
     )
     def display_page(pathname):
-        # For the root path or dashboard path, check authentication
+
         if pathname == '/' or pathname == '/dashboard':
             if current_user.is_authenticated:
                 return dashboard_layout
             else:
-                # Redirect to login if not authenticated
+
                 return dcc.Location(pathname='/login', id='redirect-to-login')
         
-        # Allow access to login and register pages
+
         elif pathname == '/login':
-            # If already authenticated, redirect to dashboard
+
             if current_user.is_authenticated:
                 return dcc.Location(pathname='/dashboard', id='redirect-to-dashboard')
             return login_layout
         elif pathname == '/register':
-            # If already authenticated, redirect to dashboard
+
             if current_user.is_authenticated:
                 return dcc.Location(pathname='/dashboard', id='redirect-to-dashboard')
             return register_layout
