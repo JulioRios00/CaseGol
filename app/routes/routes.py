@@ -1,6 +1,6 @@
 import os
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, redirect
 from flask_login import current_user, login_required, login_user, logout_user
 from sqlalchemy.exc import TimeoutError
 from flask import current_app
@@ -89,20 +89,13 @@ def api_logout():
     Application routes
 """
 @main.route("/")
-@login_required
-def dashboard():
-    year_min = db.session.query(db.func.min(Flight.ano)).scalar()
-    year_max = db.session.query(db.func.max(Flight.ano)).scalar()
-
-    markets = [
-        market[0]
-        for market in Flight.query.with_entities(Flight.mercado).distinct().all()
-    ]
-
-    return (
-        jsonify({"year_min": year_min, "year_max": year_max, "markets": markets}),
-        200,
-    )
+def root():
+    """
+    Root route handler - redirects to appropriate page based on authentication
+    """
+    if current_user.is_authenticated:
+        return redirect("/dashboard")
+    return redirect("/login")
 
 
 @main.route("/api/filter", methods=["POST"])
@@ -118,8 +111,6 @@ def api_filter():
         start_month = int(request.form.get("start_month"))
         end_year = int(request.form.get("end_year"))
         end_month = int(request.form.get("end_month"))
-        
-
         
         start_time = time.time()
         timeout = 25 
@@ -186,9 +177,6 @@ def api_dashboard_data():
     
     try:
 
-        from flask import current_app
-        
-
         year_data = db.session.query(
             db.func.min(Flight.ano).label('min_year'),
             db.func.max(Flight.ano).label('max_year')
@@ -206,7 +194,6 @@ def api_dashboard_data():
                 "markets": []
             }), 200
         
-        # Limit the number of distinct markets to avoid memory issues
         markets = [
             market[0]
             for market in db.session.query(Flight.mercado).distinct().limit(200).all()

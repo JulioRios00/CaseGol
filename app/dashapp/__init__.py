@@ -19,7 +19,7 @@ def init_dashboard(server):
     dash_app = Dash(
         __name__,
         server=server,
-        url_base_pathname="/",
+        url_base_pathname="/dash/",
         suppress_callback_exceptions=True,
         external_stylesheets=[dbc.themes.BOOTSTRAP],
     )
@@ -33,19 +33,19 @@ def init_dashboard(server):
 
     @dash_app.callback(Output("page-content", "children"), [Input("url", "pathname")])
     def display_page(pathname):
-        if pathname == "/" or pathname == "/dashboard":
+        if pathname == "/dash/" or pathname == "/dash/dashboard":
             if current_user.is_authenticated:
                 return dashboard_layout
             else:
-                return dcc.Location(pathname="/login", id="redirect-to-login")
+                return dcc.Location(pathname="/dash/login", id="redirect-to-login")
 
-        elif pathname == "/login":
+        elif pathname == "/dash/login":
             if current_user.is_authenticated:
-                return dcc.Location(pathname="/dashboard", id="redirect-to-dashboard")
+                return dcc.Location(pathname="/dash/dashboard", id="redirect-to-dashboard")
             return login_layout
-        elif pathname == "/register":
+        elif pathname == "/dash/register":
             if current_user.is_authenticated:
-                return dcc.Location(pathname="/dashboard", id="redirect-to-dashboard")
+                return dcc.Location(pathname="/dash/dashboard", id="redirect-to-dashboard")
             return register_layout
         else:
             return "404 - Page not found"
