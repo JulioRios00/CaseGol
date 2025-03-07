@@ -22,9 +22,14 @@ def unauthorized():
 def create_app(config_name="default"):
     app = Flask(__name__)
 
-    app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "fallback-secret-key")
+    app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "super-secreta")
 
-    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///app.db"
+    database_url = os.environ.get('DATABASE_URL', 'postgresql://postgres:postgres@db:5432/golcase')
+    
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql://", 1)
+        
+    app.config["SQLALCHEMY_DATABASE_URI"] = database_url
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     app.config["JSONIFY_PRETTYPRINT_REGULAR"] = False
 
