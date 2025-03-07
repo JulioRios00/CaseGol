@@ -2,6 +2,9 @@ import os
 
 from flask import Blueprint, jsonify, request
 from flask_login import current_user, login_required, login_user, logout_user
+from sqlalchemy.exc import TimeoutError
+from flask import current_app
+import time
 
 from app import db
 from app.models.models import Flight, User
@@ -115,8 +118,15 @@ def api_filter():
         start_month = int(request.form.get("start_month"))
         end_year = int(request.form.get("end_year"))
         end_month = int(request.form.get("end_month"))
+        
 
-        query = Flight.query.filter(Flight.mercado == market)
+        
+        start_time = time.time()
+        timeout = 25 
+
+        query = db.session.query(
+            Flight.id, Flight.ano, Flight.mes, Flight.mercado, Flight.rpk
+        ).filter(Flight.mercado == market)
 
         date_condition = (
             (Flight.ano > start_year)
@@ -127,25 +137,31 @@ def api_filter():
         )
 
         query = query.filter(date_condition)
+        
+        flights = query.order_by(Flight.ano, Flight.mes).limit(1000).all()
+        
+        if time.time() - start_time > timeout:
+            return jsonify({"error": "Query timeout. Please try with a smaller date range."}), 408
 
-        flights = query.order_by(Flight.ano, Flight.mes).all()
-
-        labels = [f"{flight.ano}-{flight.mes:02d}" for flight in flights]
-        rpk_values = [
-            float(flight.rpk) if flight.rpk is not None else 0.0 for flight in flights
-        ]
-
+        labels = []
+        rpk_values = []
         flight_data = []
+        
         for flight in flights:
-            flight_data.append(
-                {
-                    "id": flight.id,
-                    "ano": flight.ano,
-                    "mes": flight.mes,
-                    "mercado": flight.mercado,
-                    "rpk": float(flight.rpk) if flight.rpk is not None else 0.0,
-                }
-            )
+            if time.time() - start_time > timeout:
+                break
+                
+            labels.append(f"{flight.ano}-{flight.mes:02d}")
+            rpk_value = float(flight.rpk) if flight.rpk is not None else 0.0
+            rpk_values.append(rpk_value)
+            
+            flight_data.append({
+                "id": flight.id,
+                "ano": flight.ano,
+                "mes": flight.mes,
+                "mercado": flight.mercado,
+                "rpk": rpk_value,
+            })
 
         response_data = {
             "flights": flight_data,
@@ -156,25 +172,59 @@ def api_filter():
         return jsonify(response_data), 200
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 
 @main.route("/api/dashboard-data")
 @login_required
 def api_dashboard_data():
-    year_min = db.session.query(db.func.min(Flight.ano)).scalar()
-    year_max = db.session.query(db.func.max(Flight.ano)).scalar()
+    import time
+    start_time = time.time()
+    timeout = 25  
+    
+    try:
 
-    markets = [
-        market[0]
-        for market in Flight.query.with_entities(Flight.mercado).distinct().all()
-    ]
+        from flask import current_app
+        
 
-    return (
-        jsonify({"year_min": year_min, "year_max": year_max, "markets": markets}),
-        200,
-    )
+        year_data = db.session.query(
+            db.func.min(Flight.ano).label('min_year'),
+            db.func.max(Flight.ano).label('max_year')
+        ).first()
+        
+        year_min = year_data.min_year if year_data else 2000
+        year_max = year_data.max_year if year_data else 2023
+        
 
+        if time.time() - start_time > timeout:
+
+            return jsonify({
+                "year_min": 2000,
+                "year_max": 2023,
+                "markets": []
+            }), 200
+        
+        # Limit the number of distinct markets to avoid memory issues
+        markets = [
+            market[0]
+            for market in db.session.query(Flight.mercado).distinct().limit(200).all()
+        ]
+        
+        return (
+            jsonify({"year_min": year_min, "year_max": year_max, "markets": markets}),
+            200,
+        )
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            "year_min": 2000,
+            "year_max": 2023,
+            "markets": [],
+            "error": str(e)
+        }), 200
 
 @main.route("/api/dashboard-data/markets", methods=["GET"])
 @login_required
@@ -183,11 +233,25 @@ def api_dashboard_markets():
     Obtém todos os mercados disponíveis no banco de dados
     Get all available markets in the database
     """
+    import time
+    start_time = time.time()
+    timeout = 25  
+    
     try:
+
         markets = [
             market[0]
-            for market in Flight.query.with_entities(Flight.mercado).distinct().all()
+            for market in db.session.query(Flight.mercado).distinct().limit(200).all()
         ]
+        
+        if time.time() - start_time > timeout:
+            return jsonify({
+                "status": "partial", 
+                "message": "Query timed out, returning partial results",
+                "count": 0, 
+                "markets": []
+            }), 200
+            
         markets.sort()
 
         return (
@@ -195,7 +259,9 @@ def api_dashboard_markets():
             200,
         )
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        import traceback
+        traceback.print_exc()
+        return jsonify({"status": "error", "error": str(e), "markets": []}), 200
 
 
 @main.route("/api/auth-status")
