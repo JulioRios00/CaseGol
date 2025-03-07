@@ -25,7 +25,7 @@ def setup_database():
     if Flight.query.count() == 0:
         csv_path = os.path.join(main.root_path, "../data/Dados_Estatisticos.csv")
         if os.path.exists(csv_path):
-            process_and_load_flight_data(csv_path)
+            process_and_load_flight_data(csv_path, chunk_size=50000)
 
 
 """

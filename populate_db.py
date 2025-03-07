@@ -6,6 +6,7 @@ from io import BytesIO
 from dotenv import load_dotenv
 import traceback
 from app.utils.utils import process_and_load_flight_data
+import argparse
 
 load_dotenv()
 
@@ -38,8 +39,13 @@ def download_csv():
         traceback.print_exc()
         return False
 
-def populate_database():
-    """Popula o banco de dados com dados de voos"""
+def populate_database(chunk_size=100000):
+    """
+    Popula o banco de dados com dados de voos
+    
+    Args:
+        chunk_size: Number of rows to process in each chunk (default: 100,000)
+    """
     try:
         from app import create_app, db
         from app.models.models import Flight
@@ -55,7 +61,7 @@ def populate_database():
                     return False
             
             print(f"Processando CSV: {CSV_PATH}")
-            success = process_and_load_flight_data(CSV_PATH)
+            success = process_and_load_flight_data(CSV_PATH, chunk_size=chunk_size)
             
             if success:
                 print("Banco de dados populado com sucesso!")
@@ -69,4 +75,9 @@ def populate_database():
         return False
 
 if __name__ == "__main__":
-    populate_database()
+    parser = argparse.ArgumentParser(description='Populate the database with flight data.')
+    parser.add_argument('--chunk-size', type=int, default=100000, 
+                        help='Number of rows to process in each chunk (default: 100,000)')
+    
+    args = parser.parse_args()
+    populate_database(chunk_size=args.chunk_size)
