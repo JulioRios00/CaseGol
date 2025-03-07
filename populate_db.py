@@ -10,13 +10,19 @@ import argparse
 
 load_dotenv()
 
-DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://postgres:postgres@db:5432/golcase')
+# More flexible database URL configuration for both Docker and Heroku environments
+# Heroku doesn't have 'db' hostname, so use SQLite as fallback if DATABASE_URL is not provided
+DATABASE_URL = os.environ.get('DATABASE_URL', 'sqlite:///app.db')
 
-if DATABASE_URL.startswith("postgres://"):
+# Fix Heroku's postgres:// vs postgresql:// issue
+if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 CSV_URL = "https://sistemas.anac.gov.br/dadosabertos/Voos%20e%20opera%C3%A7%C3%B5es%20a%C3%A9reas/Dados%20Estat%C3%ADsticos%20do%20Transporte%20A%C3%A9reo/Dados_Estatisticos.csv"
-CSV_PATH = "/app/data/Dados_Estatisticos.csv"
+
+# More flexible path that works in both Docker and Heroku environments
+base_dir = os.path.abspath(os.path.dirname(__file__))
+CSV_PATH = os.path.join(base_dir, "data", "Dados_Estatisticos.csv")
 
 def download_csv():
     """Baixa o CSV da ANAC"""
@@ -52,11 +58,21 @@ def populate_database(chunk_size=100000):
 
         app = create_app()
         with app.app_context():
+            # Make sure all tables are created before proceeding
+            print("Creating database tables...")
+            db.create_all()
+            print("Database tables created successfully")
+            
+            # Now check if data already exists
             if Flight.query.count() > 0:
                 print("Banco de dados já possui dados. Pulando importação.")
                 return True
             
+            # Ensure the data directory exists
+            os.makedirs(os.path.dirname(CSV_PATH), exist_ok=True)
+            
             if not os.path.exists(CSV_PATH):
+                print(f"CSV file not found at {CSV_PATH}, trying to download...")
                 if not download_csv():
                     return False
             
