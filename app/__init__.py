@@ -22,11 +22,12 @@ def unauthorized():
 def create_app(config_name="default"):
     app = Flask(__name__)
 
-    app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "super-secreta")
+    app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "fallback-secret-key")
 
-    database_url = os.environ.get('DATABASE_URL', 'postgres://ue2vq6vfrikq1a:p1973b361910c931982a079e3016e495e9c9c03d24d39488ac5850c09e05f06ed@c3nv2ev86aje4j.cluster-czrs8kj4isg7.us-east-1.rds.amazonaws.com:5432/dfuev85km9t3nd')
+    heroku_db_url = 'postgres://ue2vq6vfrikq1a:p1973b361910c931982a079e3016e495e9c9c03d24d39488ac5850c09e05f06ed@c3nv2ev86aje4j.cluster-czrs8kj4isg7.us-east-1.rds.amazonaws.com:5432/dfuev85km9t3nd'
+    database_url = os.environ.get('DATABASE_URL', heroku_db_url)
     
-    if database_url.startswith("postgres://"):
+    if database_url and database_url.startswith("postgres://"):
         database_url = database_url.replace("postgres://", "postgresql://", 1)
         
     app.config["SQLALCHEMY_DATABASE_URI"] = database_url

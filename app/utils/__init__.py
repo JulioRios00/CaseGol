@@ -13,11 +13,16 @@ login_manager.login_view = "main.login"
 def create_app(config_name="default"):
     app = Flask(__name__)
     
-    database_url = os.environ.get('DATABASE_URL', 'postgresql://postgres:postgres@db:5432/golcase')
+    # Use the Heroku PostgreSQL URL
+    heroku_db_url = 'postgres://ue2vq6vfrikq1a:p1973b361910c931982a079e3016e495e9c9c03d24d39488ac5850c09e05f06ed@c3nv2ev86aje4j.cluster-czrs8kj4isg7.us-east-1.rds.amazonaws.com:5432/dfuev85km9t3nd'
+    database_url = os.environ.get('DATABASE_URL', heroku_db_url)
 
-    if database_url.startswith("postgres://"):
+    # Fix Heroku's postgres:// vs postgresql:// issue
+    if database_url and database_url.startswith("postgres://"):
         database_url = database_url.replace("postgres://", "postgresql://", 1)
 
+    # Set the database URI in app config
+    app.config["SQLALCHEMY_DATABASE_URI"] = database_url
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
     @app.shell_context_processor
