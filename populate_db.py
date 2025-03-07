@@ -10,7 +10,7 @@ import argparse
 
 load_dotenv()
 
-DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://postgres:postgres@db:5432/golcase')
+DATABASE_URL = os.environ.get('DATABASE_URL', 'postgres://ue2vq6vfrikq1a:p1973b361910c931982a079e3016e495e9c9c03d24d39488ac5850c09e05f06ed@c3nv2ev86aje4j.cluster-czrs8kj4isg7.us-east-1.rds.amazonaws.com:5432/dfuev85km9t3nd')
 
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
