@@ -22,7 +22,7 @@ def unauthorized():
 def create_app(config_name="default"):
     app = Flask(__name__)
 
-    app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "fallback-secret-key")
+    app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "super-secreta")
 
     database_url = os.environ.get('DATABASE_URL', 'postgresql://postgres:postgres@db:5432/golcase')
     
