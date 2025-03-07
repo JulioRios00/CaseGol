@@ -1,14 +1,11 @@
 import os
 
-import pandas as pd
-from flask import (Blueprint, current_app, jsonify, redirect, render_template,
-                   request, url_for)
+from flask import Blueprint, jsonify, request
 from flask_login import current_user, login_required, login_user, logout_user
 
 from app import db
 from app.models.models import Flight, User
-from app.utils.utils import (direct_login, direct_register, hash_password,
-                             process_and_load_flight_data)
+from app.utils.utils import hash_password, process_and_load_flight_data
 
 main = Blueprint("main", __name__)
 
@@ -21,8 +18,6 @@ main = Blueprint("main", __name__)
     Same behavior as the models file. Due the small number of routes,
     I kept them all in the same file.
 """
-
-
 @main.before_app_first_request
 def setup_database():
     db.create_all()
@@ -37,8 +32,6 @@ def setup_database():
     Rotas de autenticação
     Authentication routes
 """
-
-
 @main.route("/api/register", methods=["POST"])
 def api_register():
     username = request.form["username"]
@@ -92,8 +85,6 @@ def api_logout():
     Rotas da aplicação
     Application routes
 """
-
-
 @main.route("/")
 @login_required
 def dashboard():

@@ -4,7 +4,7 @@ import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.express as px
 import requests
-from dash import Input, Output, State, dash_table, dcc, html, no_update
+from dash import Input, Output, State, dash_table, dcc, html
 from flask import request
 from flask_login import current_user
 

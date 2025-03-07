@@ -1,5 +1,4 @@
-from dash import Input, Output, State, dcc, html, no_update
-from flask import request
+from dash import Input, Output, State, no_update
 from flask_login import logout_user
 
 from app.utils.utils import direct_login, direct_register
@@ -11,6 +10,7 @@ def register_auth_callbacks(app):
         [Input("login-button", "n_clicks")],
         [State("login-username", "value"), State("login-password", "value")],
     )
+    
     def login_user_callback(n_clicks, username, password):
         if n_clicks is None or n_clicks == 0:
             return "", no_update
