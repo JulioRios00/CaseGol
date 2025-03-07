@@ -53,7 +53,7 @@ def direct_register(username, password):
 
 def process_and_load_flight_data(csv_path):
     """
-    Faz o processamento dos dados de voo da ANAC e inserir os dados processados no banco de dados.
+    Faz o processamento dos dados de voo da ANAC e insere os dados processados no banco de dados.
     Adicionei alguns logs para facilitar a depuração de erros
     Process the flight data from ANAC and insert the processed data into the database.
     I added some logs to facilitate debugging errors
@@ -64,6 +64,18 @@ def process_and_load_flight_data(csv_path):
         return
 
     try:
+        print("Lendo as primeiras linhas do CSV para debug...")
+        df_sample = pd.read_csv(
+            csv_path,
+            delimiter=";",
+            quotechar='"',
+            skipinitialspace=True,
+            nrows=5,
+            encoding="utf-8",
+        )
+        print(f"Colunas disponíveis: {df_sample.columns.tolist()}")
+        
+        print("Lendo o CSV completo...")
         df = pd.read_csv(
             csv_path,
             delimiter=";",
@@ -124,5 +136,7 @@ def process_and_load_flight_data(csv_path):
 
     except Exception as e:
         print(f"Error populating database: {e}")
+        import traceback
+        traceback.print_exc()
         db.session.rollback()
         return False

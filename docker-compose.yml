@@ -1,4 +1,20 @@
 services:
+  db:
+    image: postgres:14
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=golcase
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+  
   app:
     build: .
     container_name: gol_dashboard
@@ -11,11 +27,23 @@ services:
       - FLASK_APP=run.py
       - FLASK_ENV=development
       - SECRET_KEY=golcase
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/golcase
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
-
     command: >
-      bash -c "mkdir -p /app/data &&
-               flask db init || true &&
-               flask db migrate || true &&
-               flask db upgrade || true &&
-               gunicorn --bind 0.0.0.0:5000 --workers 3 --timeout 120 run:app" 
+      bash -c "
+        echo 'Esperando PostgreSQL...' &&
+        sleep 5 &&
+        flask db init || true &&
+        flask db migrate || true &&
+        flask db upgrade || true &&
+        echo 'Populando banco de dados...' &&
+        python populate_db.py &&
+        echo 'Iniciando aplicação...' &&
+        gunicorn --bind 0.0.0.0:5000 --workers 3 --timeout 120 run:app
+      "
+
+volumes:
+  postgres_data:

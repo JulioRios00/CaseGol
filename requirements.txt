@@ -21,4 +21,5 @@ requests==2.31.0
 black==23.3.0
 flake8==6.0.0
 isort==5.10.1
-python-3.9.18
+psycopg2-binary==2.9.9
+python-dotenv==1.0.0
