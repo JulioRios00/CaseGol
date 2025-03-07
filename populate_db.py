@@ -10,17 +10,14 @@ import argparse
 
 load_dotenv()
 
-# More flexible database URL configuration for both Docker and Heroku environments
-# Use the actual Heroku PostgreSQL URL provided
+
 DATABASE_URL = os.environ.get('DATABASE_URL', 'postgres://ue2vq6vfrikq1a:p1973b361910c931982a079e3016e495e9c9c03d24d39488ac5850c09e05f06ed@c3nv2ev86aje4j.cluster-czrs8kj4isg7.us-east-1.rds.amazonaws.com:5432/dfuev85km9t3nd')
 
-# Fix Heroku's postgres:// vs postgresql:// issue
 if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 CSV_URL = "https://sistemas.anac.gov.br/dadosabertos/Voos%20e%20opera%C3%A7%C3%B5es%20a%C3%A9reas/Dados%20Estat%C3%ADsticos%20do%20Transporte%20A%C3%A9reo/Dados_Estatisticos.csv"
 
-# More flexible path that works in both Docker and Heroku environments
 base_dir = os.path.abspath(os.path.dirname(__file__))
 CSV_PATH = os.path.join(base_dir, "data", "Dados_Estatisticos.csv")
 
@@ -28,7 +25,7 @@ def download_csv():
     """Baixa o CSV da ANAC"""
     print(f"Baixando dados da ANAC de: {CSV_URL}")
     
-    # Ensure the data directory exists
+
     data_dir = os.path.dirname(CSV_PATH)
     print(f"Creating directory if needed: {data_dir}")
     os.makedirs(data_dir, exist_ok=True)
